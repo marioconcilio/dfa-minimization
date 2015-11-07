@@ -9,7 +9,7 @@ Uma descrição do método de miminização de estados de AFDs e de sua implemen
 Os slides são baseados (parcialmente) no livro do Prof. Marcus Ramos. Material adicional sobre minimização de estados encontram-se nos slides do livro, em http://www.univasf.edu.br/~marcus.ramos/livro-lfa/cap3.pdf
   
 ### Chamada do programa e especificações dos arquivos
-A chamada do programa será nas formas:
+#### A chamada do programa será nas formas
 <ul>
   <li>Implementacão em C
     <ul>
@@ -23,7 +23,7 @@ A chamada do programa será nas formas:
 </ul>
 onde [NUSP1] e [NUSP2] são os números USP dos membros da dupla (ver Seção “Condições de Entrega”).
 
-O arquivo [FileInput] deverá conter a descrição do AFD a ser minimizado, e estará organizado da seguinte forma:
+#### O arquivo [FileInput] deverá conter a descrição do AFD a ser minimizado, e estará organizado da seguinte forma
 <ul>
   <li>
     A primeira linha será um cabeçalho contendo os campos: n s q0, onde n é o número de estados, s é o número de símbolos do alfabeto e q0 é o estado inicial. Todos esses parâmetros são inteiros maiores ou iguais a zero.
@@ -39,3 +39,12 @@ Essa matriz terá n linhas e s colunas, e a posição Delta[i, j] conterá o est
     Quando não houver transição sobre o estado i com o símbolo j, Delta[i, j] = -1.
   </li>
 </ul>
+
+#### Observações
+<ul>
+<li> Em cada linha, os campos serão separados por espaços (preferencialmente) ou tabulação.</li>
+<li> Os estados serão indexados de 0 a n-1, e os símbolos do alfabeto serão indexados de 0 a s-1.</li>
+</ul>
+
+
+O arquivo [FileOutput] será a saída de seu programa, e deverá conter a descrição do AFD minimizado. O formato desse arquivo é idêntico àquele do arquivo [FileInput].
