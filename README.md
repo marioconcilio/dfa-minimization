@@ -41,8 +41,8 @@ Essa matriz terá n linhas e s colunas, e a posição Delta[i, j] conterá o est
 </ul>
 #### Observações
 <ul>
-  <li> Em cada linha, os campos serão separados por espaços (preferencialmente) ou tabulação.</li>
-  <li> Os estados serão indexados de 0 a n-1, e os símbolos do alfabeto serão indexados de 0 a s-1.</li>
+  <li> Em cada linha, os campos serão separados por espaços (preferencialmente) ou tabulação.</li>
+  <li> Os estados serão indexados de 0 a n-1, e os símbolos do alfabeto serão indexados de 0 a s-1.</li>
 </ul>
 
 O arquivo [FileOutput] será a saída de seu programa, e deverá conter a descrição do AFD minimizado. O formato desse arquivo é idêntico àquele do arquivo [FileInput].
