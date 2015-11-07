@@ -39,8 +39,7 @@ Essa matriz terá n linhas e s colunas, e a posição Delta[i, j] conterá o est
     Quando não houver transição sobre o estado i com o símbolo j, Delta[i, j] = -1.
   </li>
 </ul>
-
-Observações
+#### Observações
 <ul>
   <li> Em cada linha, os campos serão separados por espaços (preferencialmente) ou tabulação.</li>
   <li> Os estados serão indexados de 0 a n-1, e os símbolos do alfabeto serão indexados de 0 a s-1.</li>
