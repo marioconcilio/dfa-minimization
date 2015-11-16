@@ -31,12 +31,12 @@ void display (Queue* q) {
     printf("\nDisplay: ");
     if (isEmpty(q)) {
         printf("Queue is empty.\n");
-        return;
+   		return;
     }
-   	Node* n = q->head;
+    Node* n = q->head;
     while(n) {
     	printf("%d ", n->item);
-        n = n->next;
+    	n = n->next;
     }
     printf("\n\n");
 }
