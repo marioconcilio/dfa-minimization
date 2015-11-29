@@ -104,10 +104,6 @@ bool removeEdge(Graph* g, int from, int to, int symbol) {
 	return true;
 }
 
-void deleteNode(Graph *g, int state) {
-	g[state].deleted = true;
-}
-
 void removeState(Graph* g, int state) {
 	int i;
 	for (i = 0; i < g->states; i++) {
@@ -119,7 +115,8 @@ void removeState(Graph* g, int state) {
 			n = n->next;
 		}
 	}
-	deleteNode(g, state);
+	g[state].deleted = true;
+
 }
 
 void initVisited(Graph* g) {
@@ -152,10 +149,10 @@ void inacessible(Graph* g, int initial) {
 	dfs(g, initial);
 	int i;
 	for(i = 0; i < g->states; i++) {
-		printf("%d ", g[i].finalized);
 		if(!g[i].finalized) removeState(g, i);
 	}
-	printf("\n");
+	initVisited(g);
+	initFinalized(g);
 }
 
 int main(int argc, char const *argv[]) {
@@ -177,13 +174,17 @@ int main(int argc, char const *argv[]) {
 	printf("Initial state: %d\n", initial);
 
 	Graph* dfa = newGraph(states);
+
+	// Set initial state.
 	dfa[initial].initial = true;
 
+	// Set acceptance states.
 	int i;
 	for (i = 0; i < states; i++) {
 		fscanf(file, "%d", &dfa[i].acceptance);
 	}
 
+	// Insert transitions.
 	int j; int to;
 	for (i = 0; i < states; i++) {
 		for (j=0; j < symbols; j++) {
@@ -194,6 +195,7 @@ int main(int argc, char const *argv[]) {
 
 	displayGraph(dfa);
 
+	// Remove inaccessible states
 	inacessible(dfa, initial);
 
 	displayGraph(dfa);
