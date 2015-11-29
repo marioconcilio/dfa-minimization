@@ -7,84 +7,153 @@
 typedef int bool;
 
 typedef struct Node {
-	int item;
-	struct Node* next;
+	int 	state;
+	int 	symbol;
+	struct 	Node* next;
 } Node;
 
-typedef struct Queue{
-	Node* head;
-	Node* tail;
-} Queue;
+typedef struct Graph {
+	Node* 	start;
+	int 	states;
+	bool	deleted;
+	bool	initial;
+	bool	acceptance;
+	bool 	visited;
+	bool 	finalized;
+} Graph;
 
-Queue newQueue() {
-	Queue q;
-	q.head = NULL;
-	q.tail = NULL;
-	return q;
+Node* newNode() {
+	Node* new = (Node*) malloc(sizeof(Node));
+	new->state = 0;
+	new->symbol = 0;
+	new->next = NULL;
+	return new;
 }
 
-bool isEmpty(Queue* q) {
-	return (q->tail == NULL);
-}
-
-void display (Queue* q) {
-    printf("\nDisplay: ");
-    if (isEmpty(q)) {
-        printf("Queue is empty.\n");
-   		return;
-    }
-    Node* n = q->head;
-    while(n) {
-    	printf("%d ", n->item);
-    	n = n->next;
-    }
-    printf("\n\n");
-}
-
-void push(int item, Queue* q) {
-	Node* n = (Node*) malloc(sizeof(Node));
-	n->item = item;
-	n->next = NULL;
-	if (q->head == NULL) {
-		q->head = n;
-	} else {
-		q->tail->next = n;
+void initGraph(Graph* g) {
+	int i;
+	for (i = 0; i < g->states; i++) {
+		g[i].start = NULL;
+		g[i].initial = false;
+		g[i].deleted = false;
+		g[i].acceptance = false;
+		g[i].visited = false;
+		g[i].finalized = false;
 	}
-	q->tail = n;
 }
 
-int pop(Queue *q) {
-	Node* head = q->head;
-	if (!head) return -1;
-	int item = head->item;
-	q->head = head->next;
-	free(head);
-	return item;
+Graph* newGraph(int states) {
+	Graph* g = (Graph*) malloc(sizeof(Graph) * states);
+	g->states = states;
+	initGraph(g);
+	return g;
 }
 
-void imprimirDelta(int estados, int simbolos, int delta[estados][simbolos]) {
-	printf("Transicoes: \n");
-	int i; int j;
-	for (i=0; i < estados; i++) {
-		for (j=0; j < simbolos; j++) {
-			printf("%d ", delta[i][j]);
+void displayGraph(Graph* g) {
+	int i;
+	for(i = 0; i < g->states; i++) {
+		if(g[i].deleted) continue;
+		printf("%d ", i);
+		Node* n = g[i].start;
+		while(n) {
+			printf("--%d-> (%d) ", n->symbol, n->state);
+			n = n->next;
 		}
 		printf("\n");
 	}
+	printf("\n");
 }
 
-void inicializarFinalizados(int estados, bool finalizados[estados]) {
+bool edgeExists(Graph* g, int from, int to, int symbol) {
+	Node* n = g[from].start;
+	while(n) {
+		if(n->state == to && n->symbol == symbol) {
+			return true;
+		}
+		n = n->next;
+	}
+	return false;
+}
+
+bool addEdge(Graph* g, int from, int to, int symbol) {
+	if (from < 0 || to < 0 || symbol < 0) return false;
+	if (edgeExists(g, from, to, symbol)) return false;
+	Node* new = newNode();
+	new->state = to;
+	new->symbol = symbol;
+	new->next = g[from].start;
+	g[from].start = new;
+	return true;
+}
+
+bool removeEdge(Graph* g, int from, int to, int symbol) {
+	Node* last = NULL; bool found = false;
+	Node* n = g[from].start;
+	while(n) {
+		if(n->state == to && n->symbol == symbol) {
+			found = true;
+			break;
+		}
+		last = n;
+		n = n->next;
+	}
+	if(!found) return false;
+	if(last) last->next = n->next;
+	else g[from].start = n->next;
+	free(n);
+	return true;
+}
+
+void deleteNode(Graph *g, int state) {
+	g[state].deleted = true;
+}
+
+void removeState(Graph* g, int state) {
 	int i;
-	for (i=0; i < estados; i++) {
-		finalizados[i] = false;
+	for (i = 0; i < g->states; i++) {
+		Node* n = g[i].start;
+		while(n) {
+			if(n->state == state) {
+				removeEdge(g, i, state, n->symbol);
+			}
+			n = n->next;
+		}
+	}
+	deleteNode(g, state);
+}
+
+void initVisited(Graph* g) {
+	int i;
+	for (i=0; i < g->states; i++) {
+		g[i].visited = false;
 	}
 }
 
-void imprimirFinalizados(int estados, bool finalizados[estados]) {
-	printf("Estados finalizados: \n");
+void initFinalized(Graph* g) {
 	int i;
-	for (i = 0; i < estados; i++) {
-		printf("%d ", finalizados[i]);
+	for (i = 0; i < g->states; i++) {
+		g[i].finalized = false;
+	}
+}
+
+void dfs(Graph* g, int state) {
+	if (!g[state].deleted) {
+		g[state].visited = true;
+		Node* n = g[state].start;
+		while(n) {
+			if(!g[n->state].visited) dfs(g, n->state);
+			n = n->next;
+		}
+		g[state].finalized = true;
+	}
+}
+
+void inacessible(Graph* g, int initial) {
+	dfs(g, initial);
+	int i;
+	for(i = 0; i < g->states; i++) {
+		printf("%d ", g[i].finalized);
+		if(!g[i].finalized) removeState(g, i);
 	}
 	printf("\n");
 }
@@ -96,50 +165,38 @@ int main(int argc, char const *argv[]) {
 		exit(1);
 	}
 
-	int estados, simbolos, inicial;
+	int states, symbols, initial;
 	
-	fscanf(file, "%d", &estados);
-	printf("Quantidade de estados: %d\n", estados);
+	fscanf(file, "%d", &states);
+	printf("Number of states: %d\n", states);
 
-	fscanf(file, "%d", &simbolos);
-	printf("Quantidade de simbolos: %d\n", simbolos);
+	fscanf(file, "%d", &symbols);
+	printf("Numer of symbols: %d\n", symbols);
 	
-	fscanf(file, "%d", &inicial);
-	printf("Estado inicial: %d\n", inicial);
+	fscanf(file, "%d", &initial);
+	printf("Initial state: %d\n", initial);
 
-	bool aceitacao[estados]; int i;
-	for (i = 0; i < estados; i++) {
-		fscanf(file, "%d", &aceitacao[i]);
+	Graph* dfa = newGraph(states);
+	dfa[initial].initial = true;
+
+	int i;
+	for (i = 0; i < states; i++) {
+		fscanf(file, "%d", &dfa[i].acceptance);
 	}
 
-	int delta[estados][simbolos]; int j;
-	for (i = 0; i < estados; i++) {
-		for (j=0; j < simbolos; j++) {
-			fscanf(file, "%d", &delta[i][j]);
+	int j; int to;
+	for (i = 0; i < states; i++) {
+		for (j=0; j < symbols; j++) {
+			fscanf(file, "%d", &to);
+			addEdge(dfa, i, to, j);
 		}
 	}
 
-	imprimirDelta(estados, simbolos, delta);
+	displayGraph(dfa);
 
-	bool finalizados[estados];
-	inicializarFinalizados(estados, finalizados);
+	inacessible(dfa, initial);
 
-	Queue acessiveis = newQueue();
-	push(inicial, &acessiveis);
-
-	while(!isEmpty(&acessiveis)) {
-		int acessivel = pop(&acessiveis);
-		if (acessivel == -1) break;
-		for (i = 0; i < estados; i++) {
-			int estado = delta[acessivel][i];
-			if (estado != -1 && estado != acessivel && finalizados[estado] == false) {
-				push(estado, &acessiveis);
-			}
-		}
-		finalizados[acessivel] = true;		
-	}
-
-	imprimirFinalizados(estados, finalizados);
+	displayGraph(dfa);
 
 	fclose(file);
 	return 0;
