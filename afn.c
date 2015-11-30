@@ -12,6 +12,7 @@ typedef struct Node {
 	struct 	Node* next;
 } Node;
 
+// List of adjacencies graph implementation.
 typedef struct Graph {
 	Node* 	start;
 	int 	states;
@@ -22,6 +23,20 @@ typedef struct Graph {
 	bool 	finalized;
 } Graph;
 
+Node* newNode();
+void initGraph(Graph* g);
+Graph* newGraph(int states);
+void displayGraph(Graph* g);
+bool edgeExists(Graph* g, int from, int to, int symbol);
+bool addEdge(Graph* g, int from, int to, int symbol);
+bool removeEdge(Graph* g, int from, int to, int symbol);
+void removeState(Graph* g, int state);
+void initVisited(Graph* g);
+void initFinalized(Graph* g);
+void dfs(Graph* g, int state);
+void unreachable(Graph* g, int initial);
+
+// Return a new allocated node.
 Node* newNode() {
 	Node* new = (Node*) malloc(sizeof(Node));
 	new->state = 0;
@@ -30,6 +45,7 @@ Node* newNode() {
 	return new;
 }
 
+// Initializate a graph with its default value.
 void initGraph(Graph* g) {
 	int i;
 	for (i = 0; i < g->states; i++) {
@@ -42,6 +58,7 @@ void initGraph(Graph* g) {
 	}
 }
 
+// Allocate memory , initialize and returns the new graph.
 Graph* newGraph(int states) {
 	Graph* g = (Graph*) malloc(sizeof(Graph) * states);
 	g->states = states;
@@ -49,6 +66,8 @@ Graph* newGraph(int states) {
 	return g;
 }
 
+// Display a graph on screen.
+// Do not show the deleted states.
 void displayGraph(Graph* g) {
 	int i;
 	for(i = 0; i < g->states; i++) {
@@ -64,6 +83,8 @@ void displayGraph(Graph* g) {
 	printf("\n");
 }
 
+// Search for an edge in graph, using 'from' as origin
+// and 'to' as destiny, with 'symbol' as its weight.
 bool edgeExists(Graph* g, int from, int to, int symbol) {
 	Node* n = g[from].start;
 	while(n) {
@@ -75,6 +96,8 @@ bool edgeExists(Graph* g, int from, int to, int symbol) {
 	return false;
 }
 
+// Insert a new edge on graph g, 'from' a node
+// 'to' another by the given 'symbol'.
 bool addEdge(Graph* g, int from, int to, int symbol) {
 	if (from < 0 || to < 0 || symbol < 0) return false;
 	if (edgeExists(g, from, to, symbol)) return false;
@@ -86,6 +109,8 @@ bool addEdge(Graph* g, int from, int to, int symbol) {
 	return true;
 }
 
+// Removes an edge on g graph 'from' a node 'to'
+// another by the given 'symbol'.
 bool removeEdge(Graph* g, int from, int to, int symbol) {
 	Node* last = NULL; bool found = false;
 	Node* n = g[from].start;
@@ -104,6 +129,9 @@ bool removeEdge(Graph* g, int from, int to, int symbol) {
 	return true;
 }
 
+// Remove the given state on g graph. Remove an edge,
+// here, means to delete all the edges that reach the given
+// state and set the state 'deleted' variable = true.
 void removeState(Graph* g, int state) {
 	int i;
 	for (i = 0; i < g->states; i++) {
@@ -116,9 +144,11 @@ void removeState(Graph* g, int state) {
 		}
 	}
 	g[state].deleted = true;
-
 }
 
+// Set visited = true on all nodes in g graph.
+// The variable visited is used in some algorithms,
+// for example, search for inaccessible states.
 void initVisited(Graph* g) {
 	int i;
 	for (i=0; i < g->states; i++) {
@@ -126,6 +156,9 @@ void initVisited(Graph* g) {
 	}
 }
 
+// Set finalized = true on all nodes in g graph.
+// The variable finalized is used in some algorithms,
+// for example, search for inaccessible states.
 void initFinalized(Graph* g) {
 	int i;
 	for (i = 0; i < g->states; i++) {
@@ -133,6 +166,10 @@ void initFinalized(Graph* g) {
 	}
 }
 
+// Depth-first search implementation. It marks all
+// the reachable nodes, starting from the given 'state'.
+// The ones that are not marked, can be seen as unreachable
+// or inaccessible.
 void dfs(Graph* g, int state) {
 	if (!g[state].deleted) {
 		g[state].visited = true;
@@ -145,7 +182,10 @@ void dfs(Graph* g, int state) {
 	}
 }
 
-void inacessible(Graph* g, int initial) {
+// Uses depth-first search to determine the unreachable states.
+// For each one of them, it removes the state and the respectives
+// transitions.
+void unreachable(Graph* g, int initial) {
 	dfs(g, initial);
 	int i;
 	for(i = 0; i < g->states; i++) {
@@ -195,8 +235,7 @@ int main(int argc, char const *argv[]) {
 
 	displayGraph(dfa);
 
-	// Remove inaccessible states
-	inacessible(dfa, initial);
+	unreachable(dfa, initial);
 
 	displayGraph(dfa);
 
