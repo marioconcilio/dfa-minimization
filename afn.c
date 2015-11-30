@@ -129,8 +129,8 @@ bool removeEdge(Graph* g, int from, int to, int symbol) {
 	return true;
 }
 
-// Remove the given state on g graph. Remove an edge,
-// here, means to delete all the edges that reach the given
+// Remove the given state on g graph. Remove a state,
+// here, it means to delete all the edges that reach the given
 // state and set the state 'deleted' variable = true.
 void removeState(Graph* g, int state) {
 	int i;
