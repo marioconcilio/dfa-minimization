@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#include "afd_util.h"
 #define true 1
 #define false 0
 
@@ -16,7 +16,6 @@ typedef struct Node {
 typedef struct Graph {
 	Node* 	start;
 	int 	states;
-	bool	deleted;
 	bool	initial;
 	bool	acceptance;
 	bool 	visited;
@@ -29,19 +28,22 @@ Graph* newGraph(int states);
 void displayGraph(Graph* g);
 bool edgeExists(Graph* g, int from, int to, int symbol);
 bool addEdge(Graph* g, int from, int to, int symbol);
+bool isDeleted(Graph* g, int state);
 bool removeEdge(Graph* g, int from, int to, int symbol);
 void removeState(Graph* g, int state);
 void initVisited(Graph* g);
 void initFinalized(Graph* g);
 void dfs(Graph* g, int state);
 void unreachable(Graph* g, int initial);
+Graph* reverse(Graph* g);
+void useless(Graph* g);
 
 // Return a new allocated node.
-Node* newNode() {
+Node* newNode(int state, int symbol, Node* next) {
 	Node* new = (Node*) malloc(sizeof(Node));
-	new->state = 0;
-	new->symbol = 0;
-	new->next = NULL;
+	new->state = state;
+	new->symbol = symbol;
+	new->next = next;
 	return new;
 }
 
@@ -51,7 +53,6 @@ void initGraph(Graph* g) {
 	for (i = 0; i < g->states; i++) {
 		g[i].start = NULL;
 		g[i].initial = false;
-		g[i].deleted = false;
 		g[i].acceptance = false;
 		g[i].visited = false;
 		g[i].finalized = false;
@@ -71,13 +72,15 @@ Graph* newGraph(int states) {
 void displayGraph(Graph* g) {
 	int i;
 	for(i = 0; i < g->states; i++) {
-		if(g[i].deleted) continue;
+//		if(g[i].deleted) continue;
 		printf("%d ", i);
 		Node* n = g[i].start;
 		while(n) {
 			printf("--%d-> (%d) ", n->symbol, n->state);
 			n = n->next;
 		}
+		if(g[i].initial) printf("INITIAL");
+		if(g[i].acceptance) printf("ACCEPTANCE");
 		printf("\n");
 	}
 	printf("\n");
@@ -99,14 +102,18 @@ bool edgeExists(Graph* g, int from, int to, int symbol) {
 // Insert a new edge on graph g, 'from' a node
 // 'to' another by the given 'symbol'.
 bool addEdge(Graph* g, int from, int to, int symbol) {
-	if (from < 0 || to < 0 || symbol < 0) return false;
-	if (edgeExists(g, from, to, symbol)) return false;
-	Node* new = newNode();
-	new->state = to;
-	new->symbol = symbol;
-	new->next = g[from].start;
+	if(from < 0 || to < 0 || symbol < 0) return false;
+	if(edgeExists(g, from, to, symbol)) return false;
+	Node* new = newNode(to, symbol, g[from].start);
 	g[from].start = new;
 	return true;
+}
+
+// Returns if a given state is deleted or not.
+// A state is deleted if does not exists a node
+// comming out of it.
+bool isDeleted(Graph* g, int state) {
+	return g[state].start == NULL;
 }
 
 // Removes an edge on g graph 'from' a node 'to'
@@ -143,7 +150,12 @@ void removeState(Graph* g, int state) {
 			n = n->next;
 		}
 	}
-	g[state].deleted = true;
+	// Remove all edges starting on the deleted node.
+	Node* n = g[state].start;
+	while(n) {
+		removeEdge(g, state, n->state, n->symbol);
+		n = n->next;
+	}
 }
 
 // Set visited = true on all nodes in g graph.
@@ -171,19 +183,17 @@ void initFinalized(Graph* g) {
 // The ones that are not marked, can be seen as unreachable
 // or inaccessible.
 void dfs(Graph* g, int state) {
-	if (!g[state].deleted) {
-		g[state].visited = true;
-		Node* n = g[state].start;
-		while(n) {
-			if(!g[n->state].visited) dfs(g, n->state);
-			n = n->next;
-		}
-		g[state].finalized = true;
+	g[state].visited = true;
+	Node* n = g[state].start;
+	while(n) {
+		if(!g[n->state].visited) dfs(g, n->state);
+		n = n->next;
 	}
+	g[state].finalized = true;
 }
 
 // Uses depth-first search to determine the unreachable states.
-// For each one of them, it removes the state and the respectives
+// For each one of them, it removes the state and the respective
 // transitions.
 void unreachable(Graph* g, int initial) {
 	dfs(g, initial);
@@ -195,8 +205,69 @@ void unreachable(Graph* g, int initial) {
 	initFinalized(g);
 }
 
+// Return a graph with all edges reversed
+// and with an aditional state pointing
+// to all accepting states.
+Graph* reverse(Graph* g) {
+	Graph* r = newGraph(g->states + 1);
+	int i;
+	for(i = 0; i < g->states; i++) {
+		r[i].initial = g[i].initial;
+		r[i].acceptance = g[i].acceptance;
+		Node* n = g[i].start;
+		while(n) {
+			addEdge(r, n->state, i, n->symbol);
+			n = n->next;
+		}
+		if(g[i].acceptance) {
+			addEdge(r, g->states, i, 0);
+		}
+	}
+	return r;
+}
+
+// Removes useless states by reversing all the transitions
+// in the automata and using dfs to determine the states
+// that does not reach the acceptation ones.
+void useless(Graph* g) {
+	Graph* r = reverse(g);
+	dfs(r, r->states-1);
+	int i;
+	for(i = 0; i < r->states-1; i++) {
+		if(!r[i].finalized) removeState(g, i);
+	}
+}
+
+void tableFill(Graph* g) {
+	bool table[g->states][g->states];
+	int i; int j;
+	for(i = 0; i < g->states; i++) {
+		for(j = 0; j < g->states; j++) {
+			if(i == j) {
+				table[i][j] = true;
+				continue;
+			}
+			table[i][j] = false;
+		}
+	}
+	for(i = 0; i < g->states; i++) {
+		for(j = 0; j < i; j++) {
+
+			if(g[i].acceptance ^ g[j].acceptance) {
+				table[i][j] = true;
+			}
+		}
+	}
+	for(i = 0; i < g->states; i++) {
+		for(j = 0; j < g->states; j++) {
+			printf("%d ", table[i][j]);
+		}
+		printf("\n");
+	}
+}
+
 int main(int argc, char const *argv[]) {
-	FILE *file = fopen("afd-teste.txt", "r");
+	FILE *file = fopen("examples/afd4.txt", "r");
 	if (!file) {
 		printf("File not found!\n");
 		exit(1);
@@ -227,16 +298,23 @@ int main(int argc, char const *argv[]) {
 	// Insert transitions.
 	int j; int to;
 	for (i = 0; i < states; i++) {
-		for (j=0; j < symbols; j++) {
+		for (j = 0; j < symbols; j++) {
 			fscanf(file, "%d", &to);
 			addEdge(dfa, i, to, j);
 		}
 	}
 
+	printf("Original:\n");
 	displayGraph(dfa);
 
 	unreachable(dfa, initial);
+	
+	printf("Unreachable states removed:\n");
+	displayGraph(dfa);
 
+	useless(dfa);
+	
+	printf("Useless states removed:\n");
 	displayGraph(dfa);
 
 	fclose(file);
