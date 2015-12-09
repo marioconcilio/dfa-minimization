@@ -30,6 +30,7 @@ bool edgeExists(Graph* g, int from, int to, int symbol);
 bool addEdge(Graph* g, int from, int to, int symbol);
 bool isDeleted(Graph* g, int state);
 bool removeEdge(Graph* g, int from, int to, int symbol);
+void removeAllEdges(Graph* g, int state);
 void removeState(Graph* g, int state);
 void initVisited(Graph* g);
 void initFinalized(Graph* g);
@@ -136,6 +137,15 @@ bool removeEdge(Graph* g, int from, int to, int symbol) {
 	return true;
 }
 
+// Remove all edges from the given state.
+void removeAllEdges(Graph* g, int state) {
+	Node* n = g[state].start;
+	while(n) {
+		removeEdge(g, state, n->state, n->symbol);
+		n = n->next;
+	}
+}
+
 // Remove the given state on g graph. Remove a state,
 // here, it means to delete all the edges that reach the given
 // state and set the state 'deleted' variable = true.
@@ -150,12 +160,7 @@ void removeState(Graph* g, int state) {
 			n = n->next;
 		}
 	}
-	// Remove all edges starting on the deleted node.
-	Node* n = g[state].start;
-	while(n) {
-		removeEdge(g, state, n->state, n->symbol);
-		n = n->next;
-	}
+	removeAllEdges(g, state);
 }
 
 // Set visited = true on all nodes in g graph.
@@ -227,7 +232,8 @@ Graph* reverse(Graph* g) {
 }
 
 // Removes useless states by reversing all the transitions
-// in the automata and using dfs to determine the states
+// in the automata, creating an aditional state that points
+// to all acceptance states and using dfs to determine the states
 // that does not reach the acceptation ones.
 void useless(Graph* g) {
 	Graph* r = reverse(g);
@@ -267,7 +273,7 @@ void tableFill(Graph* g) {
 }
 
 int main(int argc, char const *argv[]) {
-	FILE *file = fopen("examples/afd4.txt", "r");
+	FILE *file = fopen("examples/afd3.txt", "r");
 	if (!file) {
 		printf("File not found!\n");
 		exit(1);
