@@ -27,6 +27,7 @@ void initGraph(Graph* g);
 Graph* newGraph(int states);
 void displayGraph(Graph* g);
 bool edgeExists(Graph* g, int from, int to, int symbol);
+int search(Graph* g, int from, int symbol);
 bool addEdge(Graph* g, int from, int to, int symbol);
 bool isDeleted(Graph* g, int state);
 bool removeEdge(Graph* g, int from, int to, int symbol);
@@ -38,6 +39,8 @@ void dfs(Graph* g, int state);
 void unreachable(Graph* g, int initial);
 Graph* reverse(Graph* g);
 void useless(Graph* g);
+void tableFill(Graph* g, int symbols);
+void writeDFA(Graph* g, int symbols, FILE* file);
 
 // Return a new allocated node.
 Node* newNode(int state, int symbol, Node* next) {
@@ -98,6 +101,17 @@ bool edgeExists(Graph* g, int from, int to, int symbol) {
 		n = n->next;
 	}
 	return false;
+}
+
+// Returns the next state 'from' the given state
+// with the given 'symbol'.
+int search(Graph* g, int from, int symbol) {
+	Node* n = g[from].start;
+	while(n) {
+		if(n->symbol == symbol) return n->state;
+		n = n->next;
+	}
+	return -1;
 }
 
 // Insert a new edge on graph g, 'from' a node
@@ -244,51 +258,116 @@ void useless(Graph* g) {
 	}
 }
 
-void tableFill(Graph* g) {
+// Removes the equivalent states by using
+// the table filling technique.
+void tableFill(Graph* g, int symbols) {
 	bool table[g->states][g->states];
-	int i; int j;
+	int i; int j; int k;
+
+	// Table initialization.
 	for(i = 0; i < g->states; i++) {
 		for(j = 0; j < g->states; j++) {
-			if(i == j) {
-				table[i][j] = true;
-				continue;
-			}
-			table[i][j] = false;
+			if (i == j) table[i][j] = true;
+			else table[i][j] = false;
 		}
 	}
+
+	// Given a pair of states, if one is acceptance
+	// and the other is not, they cannot be equivalent.
+	// So, we mark the pair as true.
 	for(i = 0; i < g->states; i++) {
 		for(j = 0; j < i; j++) {
-
 			if(g[i].acceptance ^ g[j].acceptance) {
 				table[i][j] = true;
 			}
 		}
 	}
+
+	// This loop executes until there is no change on table,
+	// when the variable count remains 0.
+	while(true) {
+		int count = 0;
+		for(i = 0; i < g->states; i++) {
+			for(j = 0; j < i; j++) {
+				for(k = 0; k < symbols; k++) {
+					if(!table[i][j]) {
+						int q1 = search(g, i, k);
+						int q2 = search(g, j, k);
+						if(q1 >= 0 && q2 >= 0 && !table[q1][q2]) {
+							table[i][j] = true; count++;
+						}
+					}
+				}
+			}
+		}
+		if(count == 0) break;
+	}
+
 	for(i = 0; i < g->states; i++) {
 		for(j = 0; j < g->states; j++) {
 			printf("%d ", table[i][j]);
 		}
 		printf("\n");
 	}
+
+	// Remove the states that are not marked.
+	for(i = 0; i < g->states; i++) {
+		for(j = 0; j < i; j++) {
+			if(!table[i][j]) removeState(g, i);
+		}
+	}
+}
+
+// Writes a dfa on the given file.
+void writeDFA(Graph* g, int symbols, FILE* file) {
+	int i; int j;
+	int validStates = 0; int initial;
+	for(i = 0; i < g->states; i++) {
+		if(!isDeleted(g, i)) {
+			validStates++;
+			if(g[i].initial) initial = i;
+		}
+	}
+	fprintf(file, "%d ", validStates);
+	fprintf(file, "%d ", symbols);
+	fprintf(file, "%d\n", initial);
+	for(i = 0; i < g->states; i++) {
+		if(!isDeleted(g, i)) fprintf(file, "%d ", g[i].acceptance);
+	}
+	for(i = 0; i < g->states; i++) {
+		if(isDeleted(g, i)) continue;
+		fprintf(file, "\n");
+		for(j = 0; j < symbols; j++) {
+			 fprintf(file, "%d ", search(g, i, j));
+		}
+	}
+	fprintf(file, "\n");
 }
 
 int main(int argc, char const *argv[]) {
-	FILE *file = fopen("examples/afd3.txt", "r");
-	if (!file) {
+	if(argc != 3	) {
+		printf("Usage:\n");
+		printf("afn <input dfa> <minmized dfa>\n");
+		exit(1);
+	}
+
+	FILE *input = fopen(argv[1], "r");
+	if (!input) {
 		printf("File not found!\n");
+		exit(1);
+	}
+
+	FILE* out = fopen(argv[2], "w");
+	if(!out) {
+		printf("Invalid output file\n");
 		exit(1);
 	}
 
 	int states, symbols, initial;
 	
-	fscanf(file, "%d", &states);
-	printf("Number of states: %d\n", states);
-
-	fscanf(file, "%d", &symbols);
-	printf("Numer of symbols: %d\n", symbols);
-	
-	fscanf(file, "%d", &initial);
-	printf("Initial state: %d\n", initial);
+	fscanf(input, "%d", &states);
+	fscanf(input, "%d", &symbols);
+	fscanf(input, "%d", &initial);
 
 	Graph* dfa = newGraph(states);
 
@@ -298,14 +377,14 @@ int main(int argc, char const *argv[]) {
 	// Set acceptance states.
 	int i;
 	for (i = 0; i < states; i++) {
-		fscanf(file, "%d", &dfa[i].acceptance);
+		fscanf(input, "%d", &dfa[i].acceptance);
 	}
 
 	// Insert transitions.
 	int j; int to;
 	for (i = 0; i < states; i++) {
 		for (j = 0; j < symbols; j++) {
-			fscanf(file, "%d", &to);
+			fscanf(input, "%d", &to);
 			addEdge(dfa, i, to, j);
 		}
 	}
@@ -313,16 +392,24 @@ int main(int argc, char const *argv[]) {
 	printf("Original:\n");
 	displayGraph(dfa);
 
+	// Eliminate unreachable states.
 	unreachable(dfa, initial);
-	
-	printf("Unreachable states removed:\n");
-	displayGraph(dfa);
 
+	// Eliminate useless states.
 	useless(dfa);
-	
-	printf("Useless states removed:\n");
+
+	// Eliminate equivalent states.
+	tableFill(dfa, symbols);
+
+	printf("Equivalent states removed:\n");
 	displayGraph(dfa);
 
-	fclose(file);
+	// Write the minimized DFA on the output file.
+	writeDFA(dfa, symbols, out);
+
+	// Close files.
+	fclose(input);
+	fclose(out);
+
 	return 0;
 }
