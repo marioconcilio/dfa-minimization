@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "afd_util.h"
 #define true 1
 #define false 0
 
