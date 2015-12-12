@@ -343,7 +343,7 @@ void writeDFA(Graph* g, int symbols, FILE* file) {
 }
 
 int main(int argc, char const *argv[]) {
-	if(argc != 3	) {
+	if(argc != 3) {
 		printf("Usage:\n");
 		printf("afn <input dfa> <minmized dfa>\n");
 		exit(1);
