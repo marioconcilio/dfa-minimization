@@ -75,7 +75,6 @@ Graph* newGraph(int states) {
 void displayGraph(Graph* g) {
 	int i;
 	for(i = 0; i < g->states; i++) {
-//		if(g[i].deleted) continue;
 		printf("%d ", i);
 		Node* n = g[i].start;
 		while(n) {
