@@ -274,11 +274,19 @@ void tableFill(Graph* g, int symbols) {
 	// and the other is not, they cannot be equivalent.
 	// So, we mark the pair as true.
 	for(i = 0; i < g->states; i++) {
-		for(j = 0; j < i; j++) {
+		for(j = 0; j < g->states; j++) {
 			if(g[i].acceptance ^ g[j].acceptance) {
 				table[i][j] = true;
 			}
 		}
+	}
+
+	printf("Table before step 3:\n");
+	for(i = 0; i < g->states; i++) {
+		for(j = 0; j < g->states; j++) {
+			printf("%d ", table[i][j]);
+		}
+		printf("\n");
 	}
 
 	// This loop executes until there is no change on table,
@@ -286,12 +294,15 @@ void tableFill(Graph* g, int symbols) {
 	while(true) {
 		int count = 0;
 		for(i = 0; i < g->states; i++) {
-			for(j = 0; j < i; j++) {
-				for(k = 0; k < symbols; k++) {
-					if(!table[i][j]) {
+			for(j = 0; j < g->states; j++) {
+				if(!table[i][j]) {
+					for(k = 0; k < symbols; k++) {
+						printf("i: %d - j: %d - k: %d\n", i, j, k);
 						int q1 = search(g, i, k);
 						int q2 = search(g, j, k);
-						if(q1 >= 0 && q2 >= 0 && !table[q1][q2]) {
+						printf("{%d, %d} -> {%d, %d}\n", i, j, q1, q2);
+						if(table[q1][q2]) {
+							printf("Mark\n");
 							table[i][j] = true; count++;
 						}
 					}
@@ -300,7 +311,8 @@ void tableFill(Graph* g, int symbols) {
 		}
 		if(count == 0) break;
 	}
-
+	
+	printf("Table after step 3:\n");
 	for(i = 0; i < g->states; i++) {
 		for(j = 0; j < g->states; j++) {
 			printf("%d ", table[i][j]);
@@ -374,13 +386,13 @@ int main(int argc, char const *argv[]) {
 
 	// Set acceptance states.
 	int i;
-	for (i = 0; i < states; i++) {
+	for(i = 0; i < states; i++) {
 		fscanf(input, "%d", &dfa[i].acceptance);
 	}
 
 	// Insert transitions.
 	int j; int to;
-	for (i = 0; i < states; i++) {
+	for(i = 0; i < states; i++) {
 		for (j = 0; j < symbols; j++) {
 			fscanf(input, "%d", &to);
 			addEdge(dfa, i, to, j);
