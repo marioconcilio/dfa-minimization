@@ -1,3 +1,6 @@
+// 8623757	8921242
+// Gustavo Xavier Moreira - Marcello Malagoli Ziravello
+
 #include <stdio.h>
 #include <stdlib.h>
 #define true 1
@@ -24,7 +27,6 @@ typedef struct Graph {
 Node* newNode();
 void initGraph(Graph* g);
 Graph* newGraph(int states);
-void displayGraph(Graph* g);
 bool edgeExists(Graph* g, int from, int to, int symbol);
 int search(Graph* g, int from, int symbol);
 bool addEdge(Graph* g, int from, int to, int symbol);
@@ -35,7 +37,7 @@ void dfs(Graph* g, int state);
 void unreachable(Graph** g, int initial);
 Graph* reverse(Graph* g);
 void useless(Graph** g);
-Graph* tableFill(Graph* g, int symbols);
+Graph* equivalent(Graph* g, int symbols);
 void writeDFA(Graph* g, int symbols, FILE* file);
 
 // Return a new allocated node.
@@ -59,29 +61,12 @@ void initGraph(Graph* g) {
 	}
 }
 
-// Allocate memory , initialize and returns the new graph.
+// Allocate memory, initialize and returns a new graph.
 Graph* newGraph(int states) {
 	Graph *g = (Graph*) malloc(sizeof(Graph) * states);
 	g->states = states;
 	initGraph(g);
 	return g;
-}
-
-// Display a graph on screen.
-void displayGraph(Graph* g) {
-	int i;
-	for(i = 0; i < g->states; i++) {
-		printf("%d ", i);
-		Node* n = g[i].start;
-		while(n) {
-			printf("--%d-> (%d) ", n->symbol, n->state);
-			n = n->next;
-		}
-		if(g[i].initial) printf("INITIAL");
-		if(g[i].acceptance) printf("ACCEPTANCE");
-		printf("\n");
-	}
-	printf("\n");
 }
 
 // Search for an edge in graph, using 'from' as origin
@@ -118,9 +103,8 @@ bool addEdge(Graph* g, int from, int to, int symbol) {
 	return true;
 }
 
-// Remove the given state on g graph. Remove a state,
-// here, it means to delete all the edges that reach the given
-// state and set the state 'deleted' variable = true.
+// Remove the given state on g graph, reorganizing
+// all the remaining states.
 Graph* removeState(Graph* g, int state) {
 	printf("Removendo estado: %d\n", state);
 	if(g[state].initial) return g;
@@ -152,8 +136,6 @@ Graph* removeState(Graph* g, int state) {
 			n = n->next;
 		}
 	}
-	printf("Removido:\n");
-	displayGraph(copy);
 	return copy;
 }
 
@@ -193,8 +175,7 @@ void dfs(Graph* g, int state) {
 
 // Uses depth-first search to determine the unreachable states.
 // For each one of them, it removes the state and the respective
-// transitions. At the end, returns the new graph with the deleted
-// states removed.
+// transitions.
 void unreachable(Graph** g, int initial) {
 	Graph* gp = *g;
 	dfs(gp, initial);
@@ -224,12 +205,10 @@ Graph* reverse(Graph* g) {
 			addEdge(r, g->states, i, 0);
 		}
 	}
-	printf("Reverse:\n");
-	displayGraph(r);
 	return r;
 }
 
-// Removes useless states by reversing all the transitions
+// Removes useless states by reverting all the transitions
 // in the automata, creating an aditional state that points
 // to all acceptance states and using dfs to determine the states
 // that does not reach the acceptation ones.
@@ -243,7 +222,8 @@ void useless(Graph** g) {
 	initVisited(*g);
 }
 
-Graph* tableFill(Graph* g, int symbols) {
+// Eliminate the equivalent states of a graph.
+Graph* equivalent(Graph* g, int symbols) {
 	bool table[g->states][g->states];
 	int i; int j; int k;
 
@@ -274,14 +254,6 @@ Graph* tableFill(Graph* g, int symbols) {
 		}
 	}
 
-	printf("Before:\n");
-	for(i = 0; i < g->states; i++) {
-		for(j = 0; j < g->states; j++) {
-			printf("%d ", table[i][j]);
-		}
-		printf("\n");
-	}
-
 	// This loop executes until there is no change on table,
 	// when the variable count remains 0.
 	int count = 0;
@@ -301,14 +273,6 @@ Graph* tableFill(Graph* g, int symbols) {
 			}
 		}
 		if(count == 0) break;
-	}
-	
-	printf("After:\n");
-	for(i = 0; i < g->states; i++) {
-		for(j = 0; j < g->states; j++) {
-			printf("%d ", table[i][j]);
-		}
-		printf("\n");
 	}
 
 	int rep[g->states];
@@ -332,12 +296,6 @@ Graph* tableFill(Graph* g, int symbols) {
 		if(times == 0) break;
 	}
 
-	printf("REQ: %d\n", count);
-	for(i = 0; i < g->states; i++) {
-		printf("%d ", rep[i]);
-	}
-	printf("\n");
-
 	Graph* m = newGraph(count);
 	for(i = 0; i < g->states; i++) {
 		if(g[i].initial) m[rep[i]].initial = true;
@@ -349,12 +307,11 @@ Graph* tableFill(Graph* g, int symbols) {
 		}
 	}
 
-	printf("New GRAPH:\n");
-	displayGraph(m);
-
 	return m;
 }
 
+// Writes the given dfa on the file with the same
+// pattern as the read file.
 void writeDFA(Graph* g, int symbols, FILE* file) {
 	int i; int initial = 0;
 	for(i = 0; i < g->states; i++) {
@@ -424,23 +381,14 @@ int main(int argc, char const *argv[]) {
 		}
 	}
 
-	printf("Original:\n");
-	displayGraph(dfa);
-
-	// Eliminate unreachable states.
+	// Eliminates unreachable states.
 	unreachable(&dfa, initial);
 
-	printf("Unreachable:\n");
-	displayGraph(dfa);
-
-	// Eliminate useless states.
+	// Eliminates useless states.
 	useless(&dfa);
 
-	printf("Useless states removed:\n");
-	displayGraph(dfa);
-
 	// Write the minimized DFA on the output file.
-	writeDFA(tableFill(dfa, symbols), symbols, out);
+	writeDFA(equivalent(dfa, symbols), symbols, out);
 
 	// Close files.
 	fclose(input);
