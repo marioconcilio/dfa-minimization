@@ -28,17 +28,14 @@ void displayGraph(Graph* g);
 bool edgeExists(Graph* g, int from, int to, int symbol);
 int search(Graph* g, int from, int symbol);
 bool addEdge(Graph* g, int from, int to, int symbol);
-bool isDeleted(Graph* g, int state);
-bool removeEdge(Graph* g, int from, int to, int symbol);
-void removeAllEdges(Graph* g, int state);
-void removeState(Graph* g, int state);
+Graph* removeState(Graph* g, int state);
 void initVisited(Graph* g);
 void initFinalized(Graph* g);
 void dfs(Graph* g, int state);
-void unreachable(Graph* g, int initial);
+void unreachable(Graph** g, int initial);
 Graph* reverse(Graph* g);
-void useless(Graph* g);
-void tableFill(Graph* g, int symbols);
+void useless(Graph** g);
+Graph* tableFill(Graph* g, int symbols);
 void writeDFA(Graph* g, int symbols, FILE* file);
 
 // Return a new allocated node.
@@ -64,14 +61,13 @@ void initGraph(Graph* g) {
 
 // Allocate memory , initialize and returns the new graph.
 Graph* newGraph(int states) {
-	Graph* g = (Graph*) malloc(sizeof(Graph) * states);
+	Graph *g = (Graph*) malloc(sizeof(Graph) * states);
 	g->states = states;
 	initGraph(g);
 	return g;
 }
 
 // Display a graph on screen.
-// Do not show the deleted states.
 void displayGraph(Graph* g) {
 	int i;
 	for(i = 0; i < g->states; i++) {
@@ -122,57 +118,43 @@ bool addEdge(Graph* g, int from, int to, int symbol) {
 	return true;
 }
 
-// Returns if a given state is deleted or not.
-// A state is deleted if does not exists a node
-// comming out of it.
-bool isDeleted(Graph* g, int state) {
-	return g[state].start == NULL;
-}
-
-// Removes an edge on g graph 'from' a node 'to'
-// another by the given 'symbol'.
-bool removeEdge(Graph* g, int from, int to, int symbol) {
-	Node* last = NULL; bool found = false;
-	Node* n = g[from].start;
-	while(n) {
-		if(n->state == to && n->symbol == symbol) {
-			found = true;
-			break;
-		}
-		last = n;
-		n = n->next;
-	}
-	if(!found) return false;
-	if(last) last->next = n->next;
-	else g[from].start = n->next;
-	free(n);
-	return true;
-}
-
-// Remove all edges from the given state.
-void removeAllEdges(Graph* g, int state) {
-	Node* n = g[state].start;
-	while(n) {
-		removeEdge(g, state, n->state, n->symbol);
-		n = n->next;
-	}
-}
-
 // Remove the given state on g graph. Remove a state,
 // here, it means to delete all the edges that reach the given
 // state and set the state 'deleted' variable = true.
-void removeState(Graph* g, int state) {
-	int i;
+Graph* removeState(Graph* g, int state) {
+	printf("Removendo estado: %d\n", state);
+	if(g[state].initial) return g;
+	Graph* copy = newGraph(g->states - 1); int i;
 	for (i = 0; i < g->states; i++) {
+		if(i == state) continue;
+		if(g[i].initial) {
+			if(i < state) copy[i].initial = true;
+			else copy[i-1].initial = true;
+		}
+		if(g[i].acceptance) {
+			if(i < state) copy[i].acceptance = true;
+			else copy[i-1].acceptance = true;
+		}
 		Node* n = g[i].start;
 		while(n) {
-			if(n->state == state) {
-				removeEdge(g, i, state, n->symbol);
+			if(n->state != state) {
+				if(i < state) {
+					if(n->state < state) addEdge(copy, i, n->state, n->symbol);
+					else addEdge(copy, i, n->state-1, n->symbol);
+				} else {
+					if(n->state < state) addEdge(copy, i-1, n->state, n->symbol);
+					else addEdge(copy, i-1, n->state-1, n->symbol);
+				}
+			}
+			if(i > state && n->state == state) {
+				addEdge(copy, i-1, i-1, n->symbol);
 			}
 			n = n->next;
 		}
 	}
-	removeAllEdges(g, state);
+	printf("Removido:\n");
+	displayGraph(copy);
+	return copy;
 }
 
 // Set visited = true on all nodes in g graph.
@@ -211,15 +193,17 @@ void dfs(Graph* g, int state) {
 
 // Uses depth-first search to determine the unreachable states.
 // For each one of them, it removes the state and the respective
-// transitions.
-void unreachable(Graph* g, int initial) {
-	dfs(g, initial);
+// transitions. At the end, returns the new graph with the deleted
+// states removed.
+void unreachable(Graph** g, int initial) {
+	Graph* gp = *g;
+	dfs(gp, initial);
 	int i;
-	for(i = 0; i < g->states; i++) {
-		if(!g[i].finalized) removeState(g, i);
+	for(i = 0; i < gp->states; i++) {
+		if(!gp[i].finalized) *g = removeState(gp, i);
 	}
-	initVisited(g);
-	initFinalized(g);
+	initFinalized(*g);
+	initVisited(*g);
 }
 
 // Return a graph with all edges reversed
@@ -240,6 +224,8 @@ Graph* reverse(Graph* g) {
 			addEdge(r, g->states, i, 0);
 		}
 	}
+	printf("Reverse:\n");
+	displayGraph(r);
 	return r;
 }
 
@@ -247,41 +233,48 @@ Graph* reverse(Graph* g) {
 // in the automata, creating an aditional state that points
 // to all acceptance states and using dfs to determine the states
 // that does not reach the acceptation ones.
-void useless(Graph* g) {
-	Graph* r = reverse(g);
-	dfs(r, r->states-1);
-	int i;
-	for(i = 0; i < r->states-1; i++) {
-		if(!r[i].finalized) removeState(g, i);
+void useless(Graph** g) {
+	Graph* r = reverse(*g);
+	dfs(r, r->states-1); int i;
+	for(i = 0; i < r->states; i++) {
+		if(!r[i].finalized) *g = removeState(*g, i);
 	}
+	initFinalized(*g);
+	initVisited(*g);
 }
 
-// Removes the equivalent states by using
-// the table filling technique.
-void tableFill(Graph* g, int symbols) {
+Graph* tableFill(Graph* g, int symbols) {
 	bool table[g->states][g->states];
 	int i; int j; int k;
 
-	// Table initialization.
-	for(i = 0; i < g->states; i++) {
-		for(j = 0; j < g->states; j++) {
-			if (i == j) table[i][j] = true;
-			else table[i][j] = false;
-		}
-	}
-
 	// Given a pair of states, if one is acceptance
 	// and the other is not, they cannot be equivalent.
-	// So, we mark the pair as true.
+	// So, we mark the pair as false.
 	for(i = 0; i < g->states; i++) {
 		for(j = 0; j < g->states; j++) {
-			if(g[i].acceptance ^ g[j].acceptance) {
+			if((g[i].acceptance && g[j].acceptance) || (!g[i].acceptance && !g[j].acceptance)) {
 				table[i][j] = true;
+			} else {
+				table[i][j] = false;
 			}
 		}
 	}
 
-	printf("Table before step 3:\n");
+	for(i = 0; i < g->states; i++) {
+		for(j = 0; j < g->states; j++) {
+			if(table[i][j]) {
+				for(k = 0; k < symbols; k++) {
+					int q1 = search(g, i, k);
+					int q2 = search(g, j, k);
+					if((q1 == -1 && q2 != -1) || (q1 != -1 && q2 == -1)) {
+						table[i][j] = false;
+					}
+				}
+			}
+		}
+	}
+
+	printf("Before:\n");
 	for(i = 0; i < g->states; i++) {
 		for(j = 0; j < g->states; j++) {
 			printf("%d ", table[i][j]);
@@ -291,19 +284,17 @@ void tableFill(Graph* g, int symbols) {
 
 	// This loop executes until there is no change on table,
 	// when the variable count remains 0.
+	int count = 0;
 	while(true) {
-		int count = 0;
+		count = 0;
 		for(i = 0; i < g->states; i++) {
 			for(j = 0; j < g->states; j++) {
-				if(!table[i][j]) {
+				if(table[i][j]) {
 					for(k = 0; k < symbols; k++) {
-						printf("i: %d - j: %d - k: %d\n", i, j, k);
 						int q1 = search(g, i, k);
 						int q2 = search(g, j, k);
-						printf("{%d, %d} -> {%d, %d}\n", i, j, q1, q2);
-						if(table[q1][q2]) {
-							printf("Mark\n");
-							table[i][j] = true; count++;
+						if(q1 != -1 && q2 != -1 && !table[q1][q2]) {
+							table[i][j] = false; count++;
 						}
 					}
 				}
@@ -312,7 +303,7 @@ void tableFill(Graph* g, int symbols) {
 		if(count == 0) break;
 	}
 	
-	printf("Table after step 3:\n");
+	printf("After:\n");
 	for(i = 0; i < g->states; i++) {
 		for(j = 0; j < g->states; j++) {
 			printf("%d ", table[i][j]);
@@ -320,37 +311,71 @@ void tableFill(Graph* g, int symbols) {
 		printf("\n");
 	}
 
-	// Remove the states that are not marked.
+	int rep[g->states];
 	for(i = 0; i < g->states; i++) {
-		for(j = 0; j < i; j++) {
-			if(!table[i][j]) removeState(g, i);
+		rep[i] = -1;
+	}
+
+	count = 0;
+	while(true) {
+		int times = 0;
+		for(i = 0; i < g->states; i++) {
+			if(rep[i] == -1) {
+				count++;
+				rep[i] = count -1;
+				for(j = 0; j < g->states; j++) {
+					if(table[i][j]) rep[j] = rep[i];
+					times++;
+				}
+			}
+		}
+		if(times == 0) break;
+	}
+
+	printf("REQ: %d\n", count);
+	for(i = 0; i < g->states; i++) {
+		printf("%d ", rep[i]);
+	}
+	printf("\n");
+
+	Graph* m = newGraph(count);
+	for(i = 0; i < g->states; i++) {
+		if(g[i].initial) m[rep[i]].initial = true;
+		if(g[i].acceptance) m[rep[i]].acceptance = true;
+		Node* n = g[i].start;
+		while(n) {
+			addEdge(m, rep[i], rep[n->state], n->symbol);
+			n = n->next;
 		}
 	}
+
+	printf("New GRAPH:\n");
+	displayGraph(m);
+
+	return m;
 }
 
-// Writes a dfa on the given file.
 void writeDFA(Graph* g, int symbols, FILE* file) {
-	int i; int j;
-	int validStates = 0; int initial;
+	int i; int initial = 0;
 	for(i = 0; i < g->states; i++) {
-		if(!isDeleted(g, i)) {
-			validStates++;
-			if(g[i].initial) initial = i;
-		}
+		if(g[i].initial) initial = i;
 	}
-	fprintf(file, "%d ", validStates);
+	fprintf(file, "%d ", g->states);
 	fprintf(file, "%d ", symbols);
 	fprintf(file, "%d\n", initial);
+	
 	for(i = 0; i < g->states; i++) {
-		if(!isDeleted(g, i)) fprintf(file, "%d ", g[i].acceptance);
+		fprintf(file, "%d ", g[i].acceptance);
 	}
+
+	int j;
 	for(i = 0; i < g->states; i++) {
-		if(isDeleted(g, i)) continue;
 		fprintf(file, "\n");
 		for(j = 0; j < symbols; j++) {
-			 fprintf(file, "%d ", search(g, i, j));
+			fprintf(file, "%d ", search(g, i, j));
 		}
 	}
+
 	fprintf(file, "\n");
 }
 
@@ -403,19 +428,19 @@ int main(int argc, char const *argv[]) {
 	displayGraph(dfa);
 
 	// Eliminate unreachable states.
-	unreachable(dfa, initial);
+	unreachable(&dfa, initial);
+
+	printf("Unreachable:\n");
+	displayGraph(dfa);
 
 	// Eliminate useless states.
-	useless(dfa);
+	useless(&dfa);
 
-	// Eliminate equivalent states.
-	tableFill(dfa, symbols);
-
-	printf("Equivalent states removed:\n");
+	printf("Useless states removed:\n");
 	displayGraph(dfa);
 
 	// Write the minimized DFA on the output file.
-	writeDFA(dfa, symbols, out);
+	writeDFA(tableFill(dfa, symbols), symbols, out);
 
 	// Close files.
 	fclose(input);
