@@ -1,6 +1,3 @@
-// 8623757	8921242
-// Gustavo Xavier Moreira - Marcello Malagoli Ziravello
-
 #include <stdio.h>
 #include <stdlib.h>
 #define true 1
